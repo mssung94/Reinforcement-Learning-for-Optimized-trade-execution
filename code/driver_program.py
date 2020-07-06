@@ -15,8 +15,7 @@ def test_code(verbose = True):
     enddate =dt.datetime(2016,1,1) 
 
     # train the learner
-    learner.add_evidence(symbol = sym, sd = stdate, \
-        ed = enddate) 
+    learner.add_evidence(symbol = sym, sd = stdate, ed = enddate)
 
     # set parameters for testing
     sym = "GOOG"

@@ -28,7 +28,8 @@ class QLearner(object):
 
         # Initialize Q with values ~ Uniform[-1, 1]
         self.Q = np.random.rand(num_states, num_actions) * 2 - 1
-        if self.verbose: np.savetxt('initialQtable.txt', self.Q, delimiter=',')   
+        if self.verbose:
+             np.savetxt('initialQtable.txt', self.Q, delimiter=',')
 
     def query_set_state(self, s):
         """
@@ -41,7 +42,8 @@ class QLearner(object):
 
         # Draw action from state s with the max q value.
         action = np.argmax(self.Q[s, :])
-        if self.verbose: print "s =", s,"a =",action
+        if self.verbose:
+            print("s =", s,"a =",action)
         return action
 
     def query_and_update(self,s_prime,r):
@@ -66,7 +68,8 @@ class QLearner(object):
         #decay random action rate: explore less as we are more sure of the best action to take 
         self.rar*=self.radr
 
-        if self.verbose: print "s =", s_prime,"a =",action,"r =",r
+        if self.verbose:
+            print("s =", s_prime,"a =",action,"r =",r)
 
         self.state=s_prime
         self.action=action 

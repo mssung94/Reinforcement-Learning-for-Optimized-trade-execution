@@ -10,11 +10,14 @@ def get_data(symbol, dates, colname = 'Adj Close'):
     """Read stock data for given symbol from CSV files."""
     df = pd.DataFrame(index=dates)
     try:
-        df_temp = pd.read_csv(symbol_to_path(symbol), index_col='Date',
-                parse_dates=True, usecols=['Date', colname], na_values=['nan'])
-    except Exception,e:
-        print "Error in reading ",symbol,".csv"
-        print e
+        df_temp = pd.read_csv(symbol_to_path(symbol),
+                              index_col='Date',
+                              parse_dates=True,
+                              usecols=['Date', colname],
+                              na_values=['nan'])
+    except Exception as e:
+        print("Error in reading ",symbol,".csv")
+        print(e)
         df_temp=pd.DataFrame()
     df_temp = df_temp.rename(columns={colname: symbol})
     

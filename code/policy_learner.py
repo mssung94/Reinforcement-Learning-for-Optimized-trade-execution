@@ -1,5 +1,4 @@
-
-""" 
+"""
 Rules: 
 limit to trade 100 shares per day 
 Actions: 0 = BUY, 1 = SELL, 2 = NOTHING
@@ -10,6 +9,11 @@ start trading with long 100 shares
 starting portfolio value =price of 100 shares 
 assume no trasaction fees and trading does not affect stock price 
 """
+
+"""
+df_holdings: GOOG, Stock Price, CASH, Portfolio Value
+"""
+
 import os
 import time
 import datetime as dt
@@ -43,7 +47,7 @@ class PolicyLearner(object):
         #print "training ..."
         #print df_features
         if np.sum(df_features.values)==0:
-            print 'NO FEATURES!'
+            print('NO FEATURES!')
         else: 
             #calculate discretize thresholds
             self.thresholds=self.disc_thresh(df_features)
@@ -54,7 +58,7 @@ class PolicyLearner(object):
 
     def train_learner(self,df_features):
 
-        num_of_trials=80
+        num_of_trials=10
         #initialize holdings 
         df_original_holdings=self.build_holdings(df_features)
 
@@ -68,9 +72,9 @@ class PolicyLearner(object):
             cur_pos=2 
             date=0
 
-            state = self.discretize(df_features.ix[date,'BB'], \
-                                    df_features.ix[date,'VOLAT'], \
-                                    df_features.ix[date,'VOLUME']) + cur_pos * 1000
+            state = self.discretize(df_features.iloc[date,0],
+                                    df_features.iloc[date,1],
+                                    df_features.iloc[date,2]) + cur_pos * 1000
 
             action = self.learner.query_set_state(state)
             
@@ -83,28 +87,34 @@ class PolicyLearner(object):
                 #apply selected action and update df_holdings and cur_pos
                 df_holdings,cur_pos=self.apply_action(date,df_holdings,action)
                 #calculate the reward - change in portfolio value from previous day, after applying the selected action
-                reward=df_holdings.ix[date,'Portfolio Value']-df_holdings.ix[date-1,'Portfolio Value']
+                reward=df_holdings.iloc[date,3]-df_holdings.iloc[date-1,3]
 
                 #update state by discretizing 
-                state=self.discretize(df_features.ix[date,'BB'],df_features.ix[date,'VOLAT'],df_features.ix[date,'VOLUME'])+cur_pos*1000
+                state=self.discretize(df_features.iloc[date,0],df_features.iloc[date,1],df_features.iloc[date,2])+cur_pos*1000
                 #select action to apply for tomorrow, also update Q-table 
                 action=self.learner.query_and_update(state,reward)
 
         
-                if self.verbose: print state,reward, df_holdings.ix[date,'Portfolio Value']
-            #by the end of the one trial, calculate cummulative portfolio return 
-            cum_port_return=df_holdings.ix[-1,'Portfolio Value']/df_holdings.ix[0,'Portfolio Value']-1
-            print i,'Cummulative Return: ',cum_port_return
-            df_training.ix[i,'Cummulative Return']=cum_port_return
+                if self.verbose:
+                    print(state,reward, df_holdings.iloc[date,3])
 
-        if self.verbose: print df_training
+            #by the end of the one trial, calculate cummulative portfolio return 
+            cum_port_return=df_holdings.iloc[-1,3]/df_holdings.iloc[0,3]-1
+            print(f'[{i:>4}] Cummulative Return: {cum_port_return}')
+            df_training.iloc[i,0] = cum_port_return
+
+        if self.verbose:
+            print(df_training)
         #store training performance states to local file 
         file_path=os.path.join("..","{}_result".format(self.symbol), 'Training Performance_{}.csv'.format(self.symbol))
         df_training.to_csv(file_path, sep='\t')
         #plot training performance statistics 
         ut.plot_data(df_training, symbol=self.symbol, title="Training Performance", xlabel="# of trials", ylabel="Cummulative Portfolio Return")
         
-        #apply learnt policy to the training dataset, to see training result 
+        #apply learnt policy to the training dataset, to see training result
+        print('='*50)
+        print('TEST START')
+        print('=' * 50)
         self.test_policy(symbol = self.symbol, sd = self.sd, ed = self.ed,is_training=True)
 
     
@@ -129,9 +139,9 @@ class PolicyLearner(object):
         holdings = 100
         #obtain the state for the first day and action to take for the next day 
         date=0
-        state = self.discretize(df_features.ix[date,'BB'], \
-                                df_features.ix[date,'VOLAT'], \
-                                df_features.ix[date,'VOLUME']) + cur_pos * 1000
+        state = self.discretize(df_features.iloc[date,0],
+                                df_features.iloc[date,1],
+                                df_features.iloc[date,2]) + cur_pos * 1000
 
         action = self.learner.query_set_state(state)
         #loop through every trading day to determine the trade strategy for the next day  
@@ -156,9 +166,9 @@ class PolicyLearner(object):
                 cur_pos = CASH
         
             #obtain today's end of the day state, and obtain action to take for the next day 
-            state = self.discretize(df_features.ix[date,'BB'], \
-                                df_features.ix[date,'VOLAT'], \
-                                df_features.ix[date,'VOLUME']) + cur_pos * 1000
+            state = self.discretize(df_features.iloc[date,0],
+                                    df_features.iloc[date,1],
+                                    df_features.iloc[date,2]) + cur_pos * 1000
             action = self.learner.query_set_state(state) 
 
     def test_policy(self,symbol,sd,ed,is_training=False):
@@ -177,7 +187,7 @@ class PolicyLearner(object):
         df_features=self.calc_features()
         #check of features are properly created 
         if np.sum(df_features.values)==0:
-            print 'NO FEATURES!'
+            print('NO FEATURES!')
 
         #create a dataframe to store actions for review purpose 
         df_trades=pd.DataFrame(index=df_features.index, columns=['Trades'])
@@ -189,11 +199,11 @@ class PolicyLearner(object):
 
         for trade in self.trade_generator(df_features):
             #apply trade to holdings
-            df_holdings.ix[date:,self.symbol]+=trade
-            df_holdings.ix[date:,'Cash']-=trade*df_holdings.ix[date,'Stock Price']         
-            df_holdings.ix[date:,'Portfolio Value']=df_holdings.ix[date,'Cash']+(df_holdings.ix[date,self.symbol]*df_holdings.ix[date,'Stock Price'])
+            df_holdings.iloc[date:,0]+=trade # GOOG
+            df_holdings.iloc[date:,2]-=trade*df_holdings.iloc[date,1]
+            df_holdings.iloc[date:,3]=df_holdings.iloc[date,2]+(df_holdings.iloc[date,0]*df_holdings.iloc[date,1])
             #store trade in df_trades dataframe 
-            df_trades.ix[date,'Trades']=trade
+            df_trades.iloc[date,:]['Trades']=trade
             date+=1
 
         
@@ -213,8 +223,8 @@ class PolicyLearner(object):
         df_testing['Portfolio Value']=df_holdings['Portfolio Value']
         ut.plot_data(df_testing[20:], symbol=self.symbol,title=file_name+" Stock prices & Portfolio Value", xlabel="Date", ylabel="Value")
 
-        cum_port_return=df_holdings.ix[-1,'Portfolio Value']/df_holdings.ix[20,'Portfolio Value']-1
-        print 'Cummulative Return: for {} is {}%'.format(file_name,cum_port_return*100)
+        cum_port_return=df_holdings.iloc[-1,3]/df_holdings.iloc[20,3]-1
+        print('Cummulative Return: for {} is {}%'.format(file_name,cum_port_return*100))
         
 
 
@@ -225,16 +235,16 @@ class PolicyLearner(object):
     def discretize(self,bb,volat,volume):
         disc_val=0
         for i in range(0,self.disc_steps):
-            if bb<=self.thresholds[i,0]:
-                disc_val+=i
+            if bb <= self.thresholds[i,0]:
+                disc_val = disc_val + i
                 break
         for i in range(0,self.disc_steps):
-            if volat<=self.thresholds[i,1]:
-                disc_val+=i*10
+            if volat <= self.thresholds[i,1]:
+                disc_val = disc_val + i*10
                 break
         for i in range(0,self.disc_steps):
-            if volume<=self.thresholds[i,2]:
-                disc_val+=i*100
+            if volume <= self.thresholds[i,2]:
+                disc_val = disc_val + i*100
                 break
         return disc_val
 
@@ -251,7 +261,7 @@ class PolicyLearner(object):
 
         #define number of busckets
         self.disc_steps=steps=10
-        stepsize=df_bb.size/steps
+        stepsize=int(df_bb.size/steps)
 
        
         for i in range (0,steps):
@@ -268,7 +278,7 @@ class PolicyLearner(object):
     build features dataframe
     """
     def calc_stock_daily_ret(self,df_prices):
-        normed=df_prices /df_prices.ix[0]
+        normed=df_prices /df_prices.iloc[0]
         stock_daily_ret=(normed/normed.shift(1))-1
         stock_daily_ret=stock_daily_ret[1:]
         return stock_daily_ret
@@ -299,9 +309,15 @@ class PolicyLearner(object):
         df_features['Price']=df_prices[self.symbol]
         #calculate features for each day 
         for t in range(window-1, df_prices.shape[0]-1):
-            df_features.ix[t,'BB']=(df_prices.ix[t,self.symbol]-df_sma.ix[t,self.symbol])/(2*df_std.ix[t,self.symbol])
-            df_features.ix[t,'VOLAT']=df_stock_daily_ret_std.ix[t,self.symbol]
-            df_features.ix[t,'VOLUME']=df_volumes.ix[t,self.symbol]
+            '''
+            [COLUMES]
+            df_features: BB VOLAT VOLUME Price
+            df_prices: 
+            '''
+            # print(df_prices)
+            df_features.iloc[t,0]=(df_prices.iloc[t,0]-df_sma.iloc[t,0])/(2*df_std.iloc[t,0])
+            df_features.iloc[t,1]=df_stock_daily_ret_std.iloc[t,0]
+            df_features.iloc[t,2]=df_volumes.iloc[t,0]
 
 
         #print df_features.fillna(0)
@@ -315,18 +331,18 @@ class PolicyLearner(object):
         #start the portfolio with holding 100 shares of the stock 
         columns=[self.symbol,'Stock Price','Cash','Portfolio Value']
         df_holdings=pd.DataFrame(index=df_features.index,columns=columns)
-        df_holdings.ix[:,self.symbol]=100
-        df_holdings.ix[:,'Stock Price']=df_features.ix[:,'Price']
-        df_holdings.ix[:,'Cash']=0            
-        df_holdings.ix[:,'Portfolio Value']=df_holdings.ix[0,self.symbol]*df_holdings.ix[0,'Stock Price']
+        df_holdings.iloc[:,0]=100 # GOOG
+        df_holdings.iloc[:,1]=df_features.iloc[:,3] # Stock Price
+        df_holdings.iloc[:,2]=0 # CASH
+        df_holdings.iloc[:,3]=df_holdings.iloc[0,0]*df_holdings.iloc[0,3] # Portfolio Value
         return df_holdings
 
 
     def calc_cur_pos(self,df_holdings,date):
         #position: 0=CASH, 1=SHORT, 2=LONG
-        if df_holdings.ix[date,self.symbol]==0 :
+        if df_holdings.iloc[date,:][self.symbol]==0 :
             cur_pos=0 #cash position 
-        elif df_holdings.ix[date,self.symbol]<0:                 
+        elif df_holdings.iloc[date,:][self.symbol]<0:
             cur_pos=1 #short position
         else: 
             cur_pos=2 #long position
@@ -347,15 +363,15 @@ class PolicyLearner(object):
         #apply action if condition allows 
         if action==BUY and cur_pos!=LONG:
             #add 100 shares and deduct purchase cost from cash, extend the transaction into the future 
-            df_holdings.ix[date:,self.symbol]+=100
-            df_holdings.ix[date:,'Cash']=df_holdings.ix[date,'Cash']-df_holdings.ix[date,'Stock Price']*100
+            df_holdings.iloc[date:,0]+=100
+            df_holdings.iloc[date:,2]=df_holdings.iloc[date,2]-df_holdings.iloc[date,1]*100
         elif action==SELL and cur_pos!=SHORT:
             #subtract 100 shares and add values to cash, extend the transaction into the future 
-            df_holdings.ix[date:,self.symbol]-=100
-            df_holdings.ix[date:,'Cash']=df_holdings.ix[date,'Cash']+df_holdings.ix[date,'Stock Price']*100   
+            df_holdings.iloc[date:,0]-=100
+            df_holdings.iloc[date:,2]=df_holdings.iloc[date,2]+df_holdings.iloc[date,1]*100
 
         cur_pos=self.calc_cur_pos(df_holdings,date)
         #update portolio value and extend into the future 
-        df_holdings.ix[date:,'Portfolio Value']=df_holdings.ix[date,'Cash']+df_holdings.ix[date,self.symbol]*df_holdings.ix[date,'Stock Price']
+        df_holdings.iloc[date:,3]=df_holdings.iloc[date,2]+df_holdings.iloc[date:,0]*df_holdings.iloc[date,1]
         return df_holdings, cur_pos
 
