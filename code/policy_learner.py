@@ -17,6 +17,7 @@ df_holdings: GOOG, Stock Price, CASH, Portfolio Value
 import os
 import time
 import datetime as dt
+from tqdm import tqdm,trange
 import q_learner as ql
 import pandas as pd
 import util as ut
@@ -28,9 +29,8 @@ class PolicyLearner(object):
     def __init__(self, verbose = False):
         self.verbose = verbose
         #initiate a Q learner 
-        self.learner=ql.QLearner(num_states=3000,num_actions=3,rar=0.5, radr=0.99)
-
-
+        self.learner=ql.QLearner(num_states=3000,num_actions=3,rar=0.01, radr=0.8)
+        self.iter_print = 10
 
     """
     Train Learner Functions 
@@ -58,14 +58,16 @@ class PolicyLearner(object):
 
     def train_learner(self,df_features):
 
-        num_of_trials=10
+        num_of_trials=100
         #initialize holdings 
         df_original_holdings=self.build_holdings(df_features)
 
         #dataframe to store result for each trial 
         df_training=pd.DataFrame(index=range(0,num_of_trials),columns=['Cummulative Return'])
         #Training loop 
-        for i in range (0,num_of_trials):
+        # for i in tqdm.tqdm(range (0,num_of_trials)):
+        t = trange(num_of_trials, desc='Cummulative Return')
+        for i in t:
             #reset df_holdings
             df_holdings=df_original_holdings.copy()
             #start with long 100 shares position
@@ -100,7 +102,9 @@ class PolicyLearner(object):
 
             #by the end of the one trial, calculate cummulative portfolio return 
             cum_port_return=df_holdings.iloc[-1,3]/df_holdings.iloc[0,3]-1
-            print(f'[{i:>4}] Cummulative Return: {cum_port_return}')
+            # if i%self.iter_print == 0:
+                # print(f'[{i:>4}] Cummulative Return: {cum_port_return}')
+            t.set_description(f'[{i:>4}] Cummulative Return for {self.symbol} is {cum_port_return}')
             df_training.iloc[i,0] = cum_port_return
 
         if self.verbose:
@@ -109,12 +113,12 @@ class PolicyLearner(object):
         file_path=os.path.join("..","{}_result".format(self.symbol), 'Training Performance_{}.csv'.format(self.symbol))
         df_training.to_csv(file_path, sep='\t')
         #plot training performance statistics 
-        ut.plot_data(df_training, symbol=self.symbol, title="Training Performance", xlabel="# of trials", ylabel="Cummulative Portfolio Return")
+        ut.plot_data(df_training, symbol=self.symbol,
+                     title="Training Performance",
+                     xlabel="# of trials",
+                     ylabel="Cummulative Portfolio Return")
         
         #apply learnt policy to the training dataset, to see training result
-        print('='*50)
-        print('TEST START')
-        print('=' * 50)
         self.test_policy(symbol = self.symbol, sd = self.sd, ed = self.ed,is_training=True)
 
     
@@ -181,7 +185,7 @@ class PolicyLearner(object):
         if (is_training):
             file_name=self.symbol+"_train"
         else:
-            file_name=self.symbol
+            file_name=self.symbol+"_test"
 
         #calculate the features
         df_features=self.calc_features()
@@ -224,7 +228,7 @@ class PolicyLearner(object):
         ut.plot_data(df_testing[20:], symbol=self.symbol,title=file_name+" Stock prices & Portfolio Value", xlabel="Date", ylabel="Value")
 
         cum_port_return=df_holdings.iloc[-1,3]/df_holdings.iloc[20,3]-1
-        print('Cummulative Return: for {} is {}%'.format(file_name,cum_port_return*100))
+        print('[TEST] Cummulative Return for {} is {}%'.format(file_name,cum_port_return*100))
         
 
 

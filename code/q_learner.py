@@ -55,7 +55,8 @@ class QLearner(object):
         """
 
         #Update Q[s,a]<- (1-alpha)*Q[s,a]+alpha(r+gamma*max(Q[s',:]))
-        self.Q[self.state,self.action]=(1-self.alpha)*self.Q[self.state,self.action]+self.alpha*(r+self.gamma*np.max(self.Q[s_prime,:]))
+        self.Q[self.state,self.action] = (1-self.alpha)*self.Q[self.state,self.action]\
+                                         +self.alpha*(r+self.gamma*np.max(self.Q[s_prime,:]))
         
         action = None
 
